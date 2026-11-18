@@ -16,6 +16,14 @@ class Team:
     def full_name(self) -> str:
         return f"{self.city} {self.name}"
 
+    @property
+    def bbref_abbr(self) -> str:
+        """Basketball Reference uses a few legacy codes."""
+        return _BBREF_ABBR.get(self.abbr, self.abbr)
+
+
+_BBREF_ABBR = {"BKN": "BRK", "CHA": "CHO", "PHX": "PHO"}
+
 
 TEAMS: list[Team] = [
     Team(1610612737, "ATL", "Atlanta", "Hawks"),

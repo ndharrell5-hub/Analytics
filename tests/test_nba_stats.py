@@ -123,7 +123,7 @@ def test_blocked_connection_gives_clear_error(tmp_path, monkeypatch):
         def get(self, url, params, timeout):
             raise requests.ConnectionError("Empty reply from server")
 
-    monkeypatch.setattr("hub.sources.nba_stats.time.sleep", lambda s: None)
+    monkeypatch.setattr("hub.http.time.sleep", lambda s: None)
     c = NBAStatsClient(cache=ResponseCache(tmp_path / "c.sqlite"),
                        session=DeadSession(), min_interval=0)
     with pytest.raises(NBAStatsBlocked, match="home/office network"):
@@ -136,4 +136,5 @@ def test_cli_by_game(client, monkeypatch, capsys):
     cli.main(["by-game", "Hornets", "--stat", "AVG_SEC_PER_TOUCH", "--season", "2026-27"])
     out = capsys.readouterr().out
     assert "CHA @ MIA" in out and "3.12" in out
-    assert "mean of games = 2.93" in out and "NBA.com season figure = 2.93" in out
+    assert "AVG_SEC_PER_TOUCH: mean = 2.933" in out
+    assert "NBA.com season figure = 2.93" in out

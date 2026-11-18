@@ -13,7 +13,6 @@ Notes on access:
 
 from __future__ import annotations
 
-import time
 from datetime import date, datetime
 from typing import Any
 
@@ -21,6 +20,7 @@ import pandas as pd
 import requests
 
 from hub.cache import ResponseCache
+from hub.http import CachedFetcher, SourceUnavailable
 from hub.teams import Team, find_team
 
 BASE_URL = "https://stats.nba.com/stats"
@@ -61,7 +61,7 @@ TTL_FOREVER = None
 TTL_SEASON = 6 * 3600
 
 
-class NBAStatsBlocked(RuntimeError):
+class NBAStatsBlocked(SourceUnavailable):
     """Raised when NBA.com drops or refuses the connection (usually an IP block)."""
 
 
@@ -101,49 +101,16 @@ class NBAStatsClient:
         timeout: float = 30.0,
         retries: int = 3,
     ):
-        self.cache = cache or ResponseCache()
-        self.session = session or requests.Session()
-        self.session.headers.update(HEADERS)
-        self.min_interval = min_interval
-        self.timeout = timeout
-        self.retries = retries
-        self._last_request = 0.0
-
-    # ------------------------------------------------------------------ transport
+        self.http = CachedFetcher(
+            "stats.nba.com", BASE_URL, HEADERS, cache, session, min_interval, timeout, retries,
+            unavailable_hint=("NBA.com drops connections from most cloud servers and many "
+                              "VPNs; run this from a home/office network."),
+            error_cls=NBAStatsBlocked,
+        )
+        self.session = self.http.session
 
     def get(self, endpoint: str, params: dict[str, Any], ttl: float | None = TTL_SEASON) -> dict:
-        key = ResponseCache.make_key("nba_stats", endpoint, params)
-        cached = self.cache.get(key, ttl)
-        if cached is not None:
-            return cached
-
-        url = f"{BASE_URL}/{endpoint}"
-        last_err: Exception | None = None
-        for attempt in range(self.retries):
-            wait = self.min_interval - (time.monotonic() - self._last_request)
-            if wait > 0:
-                time.sleep(wait)
-            self._last_request = time.monotonic()
-            try:
-                resp = self.session.get(url, params=params, timeout=self.timeout)
-            except (requests.ConnectionError, requests.Timeout) as err:
-                last_err = err
-                time.sleep(2 ** attempt)
-                continue
-            if resp.status_code in (429, 500, 502, 503, 504):
-                last_err = RuntimeError(f"HTTP {resp.status_code} from {endpoint}")
-                time.sleep(2 ** (attempt + 1))
-                continue
-            resp.raise_for_status()
-            body = resp.json()
-            self.cache.set(key, body)
-            return body
-
-        raise NBAStatsBlocked(
-            f"Could not reach stats.nba.com/{endpoint} after {self.retries} tries ({last_err}). "
-            "NBA.com drops connections from most cloud servers and many VPNs; "
-            "run this from a home/office network."
-        )
+        return self.http.get(endpoint, params, ttl)
 
     # ------------------------------------------------------------------ endpoints
 
