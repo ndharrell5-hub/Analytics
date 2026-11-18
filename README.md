@@ -8,7 +8,8 @@ A research tool for answering specific NBA questions from respected data sources
 | **Basketball Reference** | Box-score game logs, advanced game logs (ORtg/DRtg/pace/four factors), BPM/WS/VORP, player game logs | ✅ |
 | **PBP Stats** | Possession data: seconds per possession, shot quality, lineups, on/off, shot zones, putbacks | ✅ |
 
-Planned: Dunks & Threes (EPM), then a plain-English question layer.
+Ask questions in plain English (`python -m hub ask`), or use the per-source commands directly.
+Planned: Dunks & Threes (EPM).
 
 ## Setup
 
@@ -17,9 +18,45 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+For plain-English questions, you also need an Anthropic API key (console.anthropic.com):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
 > **NBA.com only works on a home or office network.** It drops connections from cloud servers
 > and many VPNs. If you're blocked you'll see "Could not reach stats.nba.com" after ~90s.
 > Basketball Reference and PBP Stats work anywhere.
+
+## Ask in plain English
+
+```bash
+python -m hub ask "What has been the Hornets' avg sec per touch in every game this season?"
+```
+
+Or start an interactive session, where follow-up questions keep context:
+
+```bash
+python -m hub ask
+```
+
+Claude picks the source and the right stat columns, fetches the data on your machine, and
+answers with the numbers, a table and the source. Each lookup is printed as it happens
+(e.g. `→ PBP Stats game log (team=Hornets, ...)`), so you can see where every number came
+from. If a source is unavailable (NBA.com off a home network), it says so rather than
+substituting a different stat without telling you.
+
+More examples:
+
+- "Which Hornets lineups have played the most minutes, and how have they done?"
+- "Rank the league's teams by seconds per possession on offense."
+- "How has Brandon Miller shot from three over his last five games?"
+- "Who are the top 10 players in BPM with at least 250 minutes?"
+- "How do the Hornets do with Naz Reid on the floor versus off?"
+
+**Model and cost:** uses Claude Opus 5.5 at medium effort, with prompt caching on the
+instructions and tool definitions. A typical question makes 1–3 data lookups. To change the
+model or effort, edit `MODEL` / `EFFORT` in `hub/ask.py`.
 
 ## Commands
 
@@ -94,4 +131,5 @@ in place.
 python -m pytest -q
 ```
 
-Tests run offline against synthetic responses in each source's real format.
+Tests run offline against synthetic responses in each source's real format. The question
+layer is tested with the real SDK tool runner against a scripted fake API, so no key is needed.

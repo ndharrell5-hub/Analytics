@@ -1,5 +1,8 @@
 """Command line entry point:  python -m hub <command> ...
 
+Plain English (needs ANTHROPIC_API_KEY)
+  python -m hub ask "What has been the Hornets' avg sec per touch in every game this season?"
+  python -m hub ask            (interactive; follow-up questions keep context)
 NBA.com (tracking)
   python -m hub by-game Hornets --stat AVG_SEC_PER_TOUCH
   python -m hub season --measure Drives --stat DRIVES,DRIVE_PTS --sort
@@ -189,6 +192,15 @@ def cmd_pbp_onoff(args):
     show(df, ["Name"], args, f"{team.full_name}: team {args.compare} with each player on/off")
 
 
+# ---------------------------------------------------------------------- plain English
+
+
+def cmd_ask(args):
+    from hub.ask import run  # imported lazily so the other commands don't need the SDK
+
+    run(" ".join(args.question) or None)
+
+
 # ---------------------------------------------------------------------- parser
 
 
@@ -256,6 +268,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--compare", default="PlusMinus",
                    help="team stat to compare on vs off (e.g. PlusMinus, Points, Pace)")
     s.add_argument("--min-minutes", type=int, default=0)
+
+    s = sub.add_parser("ask", help="ask a question in plain English (uses Claude)")
+    s.add_argument("question", nargs="*", help="omit for an interactive session")
+    s.set_defaults(func=cmd_ask)
 
     sub.add_parser("measures", help="list NBA.com tracking measure types").set_defaults(
         func=lambda a: [print(f"{k:14} {v}") for k, v in TRACKING_MEASURES.items()])
